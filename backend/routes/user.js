@@ -1,12 +1,13 @@
 const express = require('express');
 const zod = require('zod');
-const { User, Account } = require("../db");
+const { User, Account, RefreshToken} = require("../db/models");
 const jwt = require("jsonwebtoken");
-const { JWT_SECRET } = require('../config.js');
-const { hashPassword, verifyPassword } = require("../utils");
-const useMiddleware = require("../middleware");
-const rateLimit = require('../rateLimiter');
+const { JWT_SECRET, REFRESH_TOKEN_EXPIRES_IN_DAYS } = require('../config');
+const { hashPassword, verifyPassword, generateRefreshToken, hashToken} = require("../utils");
+const useMiddleware = require("../middleware/auth");
+const rateLimit = require('../middleware/rateLimiter');
 const router = express.Router();
+const logger = require('../logger');
 
 const signUpSchema = zod.object({
     username: zod.string(),
@@ -24,6 +25,11 @@ const updateBody = zod.object({
     username: zod.string().optional(),
     firstName: zod.string().optional(),
     lastName: zod.string().optional(),
+});
+
+const paginationSchema = zod.object({
+    page: zod.coerce.number().int().positive().optional().default(1),
+    limit: zod.coerce.number().int().positive().max(100).optional().default(10),
 });
 
 router.post('/signup', rateLimit, async (req, res) => {
@@ -54,8 +60,23 @@ router.post('/signup', rateLimit, async (req, res) => {
 
         const token = jwt.sign({ userId: user._id }, JWT_SECRET,
             {expiresIn: process.env.JWT_EXPIRES_IN});
-        res.json({ message: "User created successfully", token });
+        const refreshToken = generateRefreshToken();
+        const refreshTokenHash = hashToken(refreshToken);
+        
+        const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000);
+        
+        await RefreshToken.create({
+            userID: user._id,
+            tokenHash: refreshTokenHash,
+            expiresAt
+        });
+        
+        res.json({ message: "User created successfully", token, refreshToken });
     } catch (e) {
+        logger.error({
+            err: e,
+            username: req.body.username
+        }, "Signup failed");
         res.status(500).json({ message: "Internal server error" });
     }
 });
@@ -79,10 +100,69 @@ router.post('/signin', rateLimit, async (req, res) => {
 
         const token = jwt.sign({ userId: user._id }, JWT_SECRET,
             {expiresIn: process.env.JWT_EXPIRES_IN});
-        res.status(200).json({ token, firstName: user.firstName });
+
+        const refreshToken = generateRefreshToken();
+        const refreshTokenHash = hashToken(refreshToken);
+
+        const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000);
+
+        await RefreshToken.create({
+            userID: user._id,
+            tokenHash: refreshTokenHash,
+            expiresAt
+        });
+        res.status(200).json({ token, refreshToken, firstName: user.firstName });
     } catch (e) {
+        logger.error({
+            err: e,
+            username: req.body.username
+        }, "Signin failed");
         res.status(500).json({ message: "Internal server error" });
     }
+});
+
+router.post('/refresh', async (req, res) => {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+        return res.status(401).json({ message: "missing token" });
+    }
+    const tokenHash = hashToken(refreshToken);
+    const storedToken = await RefreshToken.findOne({ tokenHash });
+    if (!storedToken || storedToken.revoked || new Date() > storedToken.expiresAt) {
+        return res.status(401).json({ message: "Invalid refresh token" });
+    }
+    const token = jwt.sign({ userId: storedToken.userID }, JWT_SECRET, 
+        {expiresIn: process.env.JWT_EXPIRES_IN});
+    
+    storedToken.revoked = true;
+    await storedToken.save();
+    
+    const newRefreshToken = generateRefreshToken();
+    const newRefreshTokenHash = hashToken(newRefreshToken);
+    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000);
+    
+    await RefreshToken.create({
+        userID: storedToken.userID,
+        tokenHash: newRefreshTokenHash,
+        expiresAt
+    });
+    
+    res.json({ token, refreshToken: newRefreshToken });
+});
+
+router.post('/logout', async (req, res) => {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+        return res.status(400).json({ message: "missing token" });
+    }
+    
+    const tokenHash = hashToken(refreshToken);
+    const storedToken = await RefreshToken.findOne({ tokenHash });
+    if (storedToken) {
+        storedToken.revoked = true;
+        await storedToken.save();
+    }
+    res.json({message: "Logged out" });
 });
 
 router.put('/', useMiddleware, async (req, res) => {
@@ -96,21 +176,34 @@ router.put('/', useMiddleware, async (req, res) => {
 
 router.get('/bulk', useMiddleware, async (req, res) => {
     const filter = req.query.filter || "";
-
-    const users = await User.find({
+    
+    const parsed = paginationSchema.safeParse(req.query);
+    const { page, limit } = parsed.data;
+    const skip = (page - 1) * limit;
+    
+    const searchFilter = {
         $or: [
             { firstName: { $regex: filter, $options: 'i' } },
             { lastName: { $regex: filter, $options: 'i' } },
         ]
-    });
+    }
+    const users = await User.find(searchFilter).skip(skip).limit(limit);
 
+    const total = await User.countDocuments(searchFilter);
+    
     res.status(200).json({
         users: users.map(user => ({
             username: user.username,
             firstName: user.firstName,
             lastName: user.lastName,
             _id: user._id,
-        }))
+        })),
+        pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+        },
     });
 });
 
