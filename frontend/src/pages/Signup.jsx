@@ -1,8 +1,8 @@
-import { Heading } from "../components/Heading.jsx";
-import { SubHeading } from "../components/SubHeading.jsx";
-import { InputBox } from "../components/InputBox.jsx";
-import { Button } from "../components/Button.jsx";
-import { BottomWarning } from "../components/BottomWarning.jsx";
+import { Heading } from "../components/ui/Heading.jsx";
+import { SubHeading } from "../components/ui/SubHeading.jsx";
+import { InputBox } from "../components/ui/InputBox.jsx";
+import { Button } from "../components/ui/Button.jsx";
+import { BottomWarning } from "../components/ui/BottomWarning.jsx";
 import { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
