@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button } from "./ui/Button.jsx";
-import axios from "axios";
+import api from "../api/axios";
 import { useNavigate } from "react-router-dom";
 
 export const Users = () => {
@@ -8,11 +8,7 @@ export const Users = () => {
     const [filter, setFilter] = useState("");
 
     useEffect(() => {
-        const token = localStorage.getItem("token");
-        axios.get(`${import.meta.env.VITE_API_URL}/api/v1/user/bulk?filter=${filter}`,{
-            headers: {Authorization: "Bearer " + token},
-        })
-            .then(res => setUsers(res.data.users)).
+        api.get(`/api/v1/user/bulk?filter=${filter}`).then(res => setUsers(res.data.users)).
             catch(err => console.log(err));
     }, [filter]);
 

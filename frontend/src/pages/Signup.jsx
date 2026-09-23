@@ -4,7 +4,7 @@ import { InputBox } from "../components/ui/InputBox.jsx";
 import { Button } from "../components/ui/Button.jsx";
 import { BottomWarning } from "../components/ui/BottomWarning.jsx";
 import { useState } from "react";
-import axios from "axios";
+import api from "../api/axios";
 import { useNavigate } from "react-router-dom";
 
 export const Signup = () => {
@@ -28,11 +28,12 @@ export const Signup = () => {
                 <Button label={"Sign up"} onClick={async () => {
                     try {
                         setError("");
-                        const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/v1/user/signup`, {
+                        const res = await api.post("/api/v1/user/signup", {
                             firstName, lastName, username, password
                         });
                         localStorage.setItem("token", res.data.token);
                         localStorage.setItem("firstName", firstName);
+                        localStorage.setItem("refreshToken", res.data.refreshToken);
                         navigate("/dashboard");
                     } catch (e) {
                         setError(e.response?.data?.message || "Something went wrong");

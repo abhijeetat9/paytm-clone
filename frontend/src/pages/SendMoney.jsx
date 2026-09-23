@@ -1,5 +1,5 @@
 import { useSearchParams } from "react-router-dom";
-import axios from "axios";
+import api from "../api/axios";
 import { useState } from "react";
 
 export const SendMoney = () => {
@@ -44,14 +44,9 @@ export const SendMoney = () => {
                                 try {
                                     setError("");
                                     setSuccess("");
-                                    const token = localStorage.getItem("token");
-                                    await axios.post(`${import.meta.env.VITE_API_URL}/api/v1/account/transfer`, {
+                                    await api.post("/api/v1/account/transfer", {
                                         to: id,
                                         amount: Number(amount)
-                                    }, {
-                                        headers: {
-                                            Authorization: "Bearer " + token
-                                        }
                                     });
                                     setSuccess("Transfer successful!");
                                 } catch (e) {

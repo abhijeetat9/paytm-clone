@@ -3,7 +3,7 @@ import { SubHeading } from "../components/ui/SubHeading.jsx";
 import { InputBox } from "../components/ui/InputBox.jsx";
 import { Button } from "../components/ui/Button.jsx";
 import { BottomWarning } from "../components/ui/BottomWarning.jsx";
-import axios from "axios";
+import api from "../api/axios";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -24,10 +24,11 @@ export const Signin = () => {
                 <Button label={"Sign in"} onClick={async () => {
                     try {
                         setError("");
-                        const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/v1/user/signin`, {
+                        const res = await api.post("/api/v1/user/signin", {
                             username, password
                         });
                         localStorage.setItem("token", res.data.token);
+                        localStorage.setItem("refreshToken", res.data.refreshToken);
                         localStorage.setItem("firstName", res.data.firstName);
                         navigate("/dashboard");
                     } catch (e) {
