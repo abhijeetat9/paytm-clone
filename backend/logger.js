@@ -15,6 +15,15 @@ const logger = pino({
         ],
         censor: `[REDACTED]`,
     },
+    transport: process.env.NODE_ENV === 'development' ? 
+        { 
+            target: "pino-pretty", 
+            options: 
+                { colorize: true,
+                    ignore: 'req.headers,res.headers',
+                    singleLine: true,
+                },
+        }: undefined, 
 });
 
 module.exports = logger;
