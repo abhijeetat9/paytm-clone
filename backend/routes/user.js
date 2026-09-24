@@ -2,7 +2,7 @@ const express = require('express');
 const zod = require('zod');
 const { User, Account, RefreshToken} = require("../db/models");
 const jwt = require("jsonwebtoken");
-const { JWT_SECRET, REFRESH_TOKEN_EXPIRES_IN_DAYS } = require('../config');
+const config = require('../config');
 const { hashPassword, verifyPassword, generateRefreshToken, hashToken} = require("../utils");
 const useMiddleware = require("../middleware/auth");
 const rateLimit = require('../middleware/rateLimiter');
@@ -58,12 +58,12 @@ router.post('/signup', rateLimit, async (req, res) => {
             balance: 1 + Math.random() * 10000
         });
 
-        const token = jwt.sign({ userId: user._id }, JWT_SECRET,
+        const token = jwt.sign({ userId: user._id }, config.JWT_SECRET,
             {expiresIn: process.env.JWT_EXPIRES_IN});
         const refreshToken = generateRefreshToken();
         const refreshTokenHash = hashToken(refreshToken);
         
-        const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000);
+        const expiresAt = new Date(Date.now() + config.REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000);
         
         await RefreshToken.create({
             userID: user._id,
@@ -98,13 +98,13 @@ router.post('/signin', rateLimit, async (req, res) => {
             return res.status(411).json({ message: "Error while logging in" });
         }
 
-        const token = jwt.sign({ userId: user._id }, JWT_SECRET,
+        const token = jwt.sign({ userId: user._id }, config.JWT_SECRET,
             {expiresIn: process.env.JWT_EXPIRES_IN});
 
         const refreshToken = generateRefreshToken();
         const refreshTokenHash = hashToken(refreshToken);
 
-        const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000);
+        const expiresAt = new Date(Date.now() + config.REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000);
 
         await RefreshToken.create({
             userID: user._id,
@@ -131,7 +131,7 @@ router.post('/refresh', async (req, res) => {
     if (!storedToken || storedToken.revoked || new Date() > storedToken.expiresAt) {
         return res.status(401).json({ message: "Invalid refresh token" });
     }
-    const token = jwt.sign({ userId: storedToken.userID }, JWT_SECRET, 
+    const token = jwt.sign({ userId: storedToken.userID }, config.JWT_SECRET, 
         {expiresIn: process.env.JWT_EXPIRES_IN});
     
     storedToken.revoked = true;
@@ -139,7 +139,7 @@ router.post('/refresh', async (req, res) => {
     
     const newRefreshToken = generateRefreshToken();
     const newRefreshTokenHash = hashToken(newRefreshToken);
-    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + config.REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000);
     
     await RefreshToken.create({
         userID: storedToken.userID,
