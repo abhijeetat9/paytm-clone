@@ -9,6 +9,7 @@ async function startTestDb() {
 
     process.env.JWT_SECRET = "test-secret-do-not-use-in-prod";
     process.env.JWT_EXPIRES_IN = "1h";
+    process.env.REFRESH_TOKEN_EXPIRES_IN_DAYS = "7";
     process.env.CORS_ORIGIN = "";
     
     await connectDB();
