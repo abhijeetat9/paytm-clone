@@ -1,0 +1,357 @@
+openapi: 3.0.3
+info:
+  title: PayTM Clone API
+  version: 1.0.0
+  description: payment getaway clone
+  
+servers:
+  - url: http://localhost:3001/api/v1
+    description: Local development
+  
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      
+  schemas:
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Invalid credentials"
+      required:
+        - message
+  
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages: 
+          type: integer
+      required: [page, limit, total, totalPages]
+    
+    User:
+      type: object
+      properties:
+        username:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        _id:
+          type: string
+      required: [username, firstName, lastName, _id]
+    
+    AuthResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        token:
+          type: string
+        refreshToken:
+          type: string
+        firstName:
+          type: string
+      required: [token, refreshToken]
+    
+paths:
+  /user/signup:
+    post:
+      tags: [ Auth ]
+      summary: Create a new user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+              required: [ username, password, firstName, lastName ]
+      responses:
+        '200':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '411':
+          description: Invalid inputs, or username already taken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+         
+         
+  /user/signin:
+    post:
+      tags: [ Auth ]
+      summary: Authenticate an existing user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+              required: [ username, password]
+      responses:
+        '200':
+          description: Signed in successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '411':
+          description: Invalid inputs, or Error while logging in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+                
+  /user/refresh:
+    post:
+      tags: [ Auth ]
+      summary: Refresh Token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+              required: [ refreshToken ]
+      responses:
+        '200': 
+          description: Tokens are refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: missing token, or Invalid refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /user/logout:
+    post:
+      tags: [ Auth ]
+      summary: Logout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+              required: [ refreshToken ]
+      responses:
+        '200':
+          description: Successful logout
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Logged out"
+                required:
+                  - message
+        '400':
+          description: Missing Token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /user/:
+    put:
+      tags: [ Auth ]
+      summary: Update profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: 'Successfully updated user'
+                required:
+                  - message
+        '411':
+          description: Error while updating information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - bearerAuth: [ ]
+  
+  /user/bulk:
+    get:
+      tags: [ Auth ]
+      summary: Get all the users on one page
+      parameters:
+        - name: filter
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Filtered Page
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - users
+                  - pagination
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref : '#/components/schemas/User'
+                  pagination:
+                      $ref: '#/components/schemas/Pagination'              
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - bearerAuth: []
+          
+  
+  /account/balance:
+    get:
+      tags: [ Account ]
+      summary: Account summary
+      responses:
+        '200':
+          description: Got Account
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  balance:
+                    type: number
+                    example: 4000
+                required:
+                  - balance
+      security:
+        - bearerAuth: []
+      
+      
+  /account/transfer:
+    post:
+      tags: [ Account ]
+      summary: Transfer summary
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                to:
+                  type: string
+                amount:
+                  type: number
+              required: [ to, amount ]
+      parameters:
+        - name: idempotency-key
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200': 
+          description: Successful transfer
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: 
+                  message:
+                    type: string
+                    example: 'Successful transfer'
+                required:
+                  - message
+                  
+        '400':
+          description: Insufficient balance, or invalid recipient account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Incomplete transfer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'   
+      security: 
+        - bearerAuth: []
