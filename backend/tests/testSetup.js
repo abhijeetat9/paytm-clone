@@ -1,4 +1,5 @@
 const { MongoMemoryReplSet } = require("mongodb-memory-server");
+const connectDB = require("../db/connection");
 
 let mongoServer;
 
@@ -9,6 +10,8 @@ async function startTestDb() {
     process.env.JWT_SECRET = "test-secret-do-not-use-in-prod";
     process.env.JWT_EXPIRES_IN = "1h";
     process.env.CORS_ORIGIN = "";
+    
+    await connectDB();
 }
 
 async function stopTestDb() {
